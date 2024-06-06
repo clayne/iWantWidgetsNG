@@ -69,7 +69,7 @@ namespace IWW
         void _UpdateWidget(RE::GPtr<RE::GFxMovieView> a_view);
         void INVOKE2_fun(std::string a_root,std::string a_arg1, std::string a_arg2, std::string a_fun1, std::string a_fun2);
         void INVOKE_fun(std::string a_root,std::string a_arg, std::string a_fun);
-        int  INVOKERES_fun(std::string a_root,std::string a_arg, std::string a_fun);
+        int  INVOKERES_fun(std::string a_root,std::string a_arg, std::string a_fun, int a_invvalue);
         template<auto N> std::string _SelializeArray(const std::array<std::string,N> & a_array)
         {
             if (a_array.size() > 0)
@@ -91,6 +91,7 @@ namespace IWW
 
         uint32_t _outputStackNextID = 0;
         std::unordered_map<uint32_t,std::string> _outputStack;
+        std::unordered_map<uint32_t,uint8_t> _outputInvalidTries;
 
     };
 
@@ -103,9 +104,9 @@ namespace IWW
     #define INVOKEARGNORES2(root,argname1,argname2,funname1,funname2)       INVOKE_fun(root,argname1,funname2); \
                                                                             INVOKE_fun(root,argname1,funname2);
 
-    #define INVOKEARGNORESRESET(root,argname,funname) INVOKERES_fun(root,argname,funname);
+    #define INVOKEARGNORESRESET(root,argname,funname) INVOKERES_fun(root,argname,funname,-1);
 
-    #define INVOKEARGRESET(root,argname,funname) INVOKERES_fun(root,argname,funname);
+    #define INVOKEARGRESET(root,argname,funname,invvalue) INVOKERES_fun(root,argname,funname,invvalue);
 
     #define VALIDATEID(id,retvalue) \
     if (id < 1) {                   \

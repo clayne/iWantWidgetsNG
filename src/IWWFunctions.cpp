@@ -54,6 +54,9 @@ bool IWW::MainFunctions::IsResetting()
 std::string IWW::MainFunctions::GetOutput(int a_id, std::string a_def)
 {
     LOG("GetOutput({},{}) called",a_id,a_def)
+
+    if (a_id == -1) return a_def;
+
     auto loc_it = _outputStack.find(a_id);
     if (loc_it == _outputStack.end()) return a_def; //no putput for such id, return def value
 
@@ -74,7 +77,7 @@ int IWW::MainFunctions::LoadMeter(std::string a_root, int a_xpos, int a_ypos, bo
         return -1; 
     }
 
-    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadMeter")
+    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadMeter",0)
 
     LOG("LoadMeter({},{}) - Output ID = {}",a_root,loc_argstr,loc_res) //logging
 
@@ -100,7 +103,7 @@ int IWW::MainFunctions::LoadText(std::string a_root, std::string a_text, std::st
         return -1; 
     }
 
-    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadText")
+    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadText",0)
 
     LOG("LoadText({},{}) - Output ID = {}",a_root,loc_argstr,loc_res) //logging
 
@@ -124,7 +127,7 @@ int IWW::MainFunctions::LoadWidget(std::string a_root, std::string a_filename, i
         return -1; 
     }
 
-    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadWidget")
+    auto loc_res = INVOKEARGRESET(a_root,loc_argstr,".loadWidget",0)
 
     LOG("loadWidget({},{}) - Output ID = {}",a_root,loc_argstr,loc_res) //logging
 
@@ -600,7 +603,7 @@ void IWW::MainFunctions::DoTransitionByTime(std::string a_root, int a_id, int a_
     else if (a_targetAttribute == "meterpercent")
     {
         loc_array[1] = std::to_string(a_targetValue/100.0);
-        loc_array[3] = a_targetAttribute;
+        loc_array[3] = "percent";
     }
     else
     {
@@ -651,7 +654,7 @@ inline bool IWW::MainFunctions::UpdateHud()
     {                               \
         if (ptr == errvalue)        \
         {                           \
-        ERROR(msg)               \
+        ERROR(msg)                  \
         return false;               \
         }                           \
     }
@@ -678,65 +681,10 @@ inline bool IWW::MainFunctions::UpdateHud()
 
 void IWW::MainFunctions::INVOKE2_fun(std::string a_root, std::string a_arg1, std::string a_arg2, std::string a_fun1, std::string a_fun2)
 {
-    if (IWW::Config::GetSingleton()->GetVariable<bool>("General.UseUITask",true))
+    SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg1,a_fun1]
     {
-        SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg1,a_fun1]
-        {
-            LOG("INVOKE2_fun 1 start")
-            const std::string loc_pathloadmeter1 = (a_root + a_fun1);
-            RE::GFxValue    loc_arg1;
-            RE::GFxValue*   loc_argptr1 = NULL;
-            uint32_t        loc_argnum1 = 0;
-
-            if (a_arg1 != "")
-            {
-                loc_arg1.SetString(a_arg1);
-                loc_argptr1 = &loc_arg1;
-                loc_argnum1 += 2;
-            }
-
-            UniqueLock lock(_spinlock);
-            UpdateHud();
-
-            _hudmenu->InvokeNoReturn(loc_pathloadmeter1.c_str(),loc_argptr1,loc_argnum1);
-            _UpdateWidget(_hudmenu);
-
-            LOG("INVOKE2_fun 1 end")
-        });
-
-        SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg2,a_fun2]
-        {
-            LOG("INVOKE2_fun 2 start")
-            const std::string loc_pathloadmeter2 = (a_root + a_fun2);
-            RE::GFxValue    loc_arg2;
-            RE::GFxValue*   loc_argptr2 = NULL;
-            uint32_t        loc_argnum2 = 0;
-
-            if (a_arg2 != "")
-            {
-                loc_arg2.SetString(a_arg2);
-                loc_argptr2 = &loc_arg2;
-                loc_argnum2 += 1;
-            }
-
-            UniqueLock lock(_spinlock);
-            UpdateHud();
-
-            _hudmenu->InvokeNoReturn(loc_pathloadmeter2.c_str(),loc_argptr2,loc_argnum2);
-            _UpdateWidget(_hudmenu);
-
-            LOG("INVOKE2_fun 2 end")
-        });
-    }
-    else
-    {
-        LOG("INVOKE2_fun start")
-        const std::string     loc_pathloadmeter1 = (a_root + a_fun1);
-        const std::string     loc_pathloadmeter2 = (a_root + a_fun2);
-
-        UniqueLock lock(_spinlock);
-        UpdateHud();
-
+        LOG("INVOKE2_fun 1 start")
+        const std::string loc_pathloadmeter1 = (a_root + a_fun1);
         RE::GFxValue    loc_arg1;
         RE::GFxValue*   loc_argptr1 = NULL;
         uint32_t        loc_argnum1 = 0;
@@ -748,9 +696,19 @@ void IWW::MainFunctions::INVOKE2_fun(std::string a_root, std::string a_arg1, std
             loc_argnum1 += 2;
         }
 
+        UniqueLock lock(_spinlock);
+        UpdateHud();
+
         _hudmenu->InvokeNoReturn(loc_pathloadmeter1.c_str(),loc_argptr1,loc_argnum1);
         _UpdateWidget(_hudmenu);
 
+        LOG("INVOKE2_fun 1 end")
+    });
+
+    SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg2,a_fun2]
+    {
+        LOG("INVOKE2_fun 2 start")
+        const std::string loc_pathloadmeter2 = (a_root + a_fun2);
         RE::GFxValue    loc_arg2;
         RE::GFxValue*   loc_argptr2 = NULL;
         uint32_t        loc_argnum2 = 0;
@@ -762,41 +720,19 @@ void IWW::MainFunctions::INVOKE2_fun(std::string a_root, std::string a_arg1, std
             loc_argnum2 += 1;
         }
 
+        UniqueLock lock(_spinlock);
+        UpdateHud();
+
         _hudmenu->InvokeNoReturn(loc_pathloadmeter2.c_str(),loc_argptr2,loc_argnum2);
         _UpdateWidget(_hudmenu);
 
-        LOG("INVOKE2_fun end")
-    }
+        LOG("INVOKE2_fun 2 end")
+    });
 }
 
 void IWW::MainFunctions::INVOKE_fun(std::string a_root, std::string a_arg, std::string a_fun)
 {
-    if (IWW::Config::GetSingleton()->GetVariable<bool>("General.UseUITask",true))
-    {
-        SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg,a_fun]
-        {
-            LOG("INVOKE_fun start")
-            const std::string loc_pathloadmeter = (a_root + a_fun);
-            RE::GFxValue*   loc_argptr = NULL;
-            RE::GFxValue    loc_arg;
-            uint32_t        loc_argnum = 0;
-
-            if (a_arg != "")
-            {
-                loc_arg.SetString(a_arg);
-                loc_argptr  = &loc_arg;
-                loc_argnum += 1;
-            }
-
-            UniqueLock lock(_spinlock);
-            UpdateHud();
-
-            _hudmenu->InvokeNoReturn(loc_pathloadmeter.c_str(),loc_argptr,loc_argnum);
-            _UpdateWidget(_hudmenu); 
-            LOG("INVOKE_fun end")
-        });
-    }
-    else
+    SKSE::GetTaskInterface()->AddUITask([this,a_root,a_arg,a_fun]
     {
         LOG("INVOKE_fun start")
         const std::string loc_pathloadmeter = (a_root + a_fun);
@@ -813,58 +749,31 @@ void IWW::MainFunctions::INVOKE_fun(std::string a_root, std::string a_arg, std::
 
         UniqueLock lock(_spinlock);
         UpdateHud();
+
         _hudmenu->InvokeNoReturn(loc_pathloadmeter.c_str(),loc_argptr,loc_argnum);
-        _UpdateWidget(_hudmenu);
-        LOG("INVOKE_fun") 
-    }
+        _UpdateWidget(_hudmenu); 
+        LOG("INVOKE_fun end")
+    });
 }
 
-int IWW::MainFunctions::INVOKERES_fun(std::string a_root, std::string a_arg, std::string a_fun)
+int IWW::MainFunctions::INVOKERES_fun(std::string a_root, std::string a_arg, std::string a_fun, int a_invvalue)
 {
-    LOG("INVOKERES_fun start")
+    //LOG("INVOKERES_fun start")
     
     uint32_t loc_outputId = _outputStackNextID;
     _outputStackNextID++; //increase output stack
 
-    LOG("INVOKERES_fun - Output ID = {}",_outputStackNextID - 1)
+    LOG("INVOKERES_fun({}) - Output ID = {}",loc_outputId,loc_outputId)
 
-    if (IWW::Config::GetSingleton()->GetVariable<bool>("General.UseUITask",true))
+    _outputStack[loc_outputId] = "W8";
+
+    static const uint8_t loc_basetries = Config::GetSingleton()->GetVariable<int>("General.InvalidValueTimeDelay",20);
+    _outputInvalidTries[loc_outputId] = loc_basetries;
+
+    std::function<void(void)> loc_fun;
+        
+    loc_fun = [this,loc_fun,loc_outputId,a_root,a_arg,a_fun,a_invvalue]
     {
-        _outputStack[loc_outputId] = "W8";
-        SKSE::GetTaskInterface()->AddUITask([this,loc_outputId,a_root,a_arg,a_fun]
-        {
-            
-            const std::string loc_pathloadmeter = (a_root + a_fun);
-            RE::GFxValue*   loc_argptr = NULL;
-            RE::GFxValue    loc_arg;
-            RE::GFxValue    loc_res;
-            uint32_t        loc_argnum = 0;
-
-            if (a_arg != "")
-            {
-                loc_arg.SetString(a_arg);
-                loc_argptr  = &loc_arg;
-                loc_argnum += 1;
-            }
-    
-            UniqueLock lock(_spinlock);
-            UpdateHud();
-            _hudmenu->Invoke(loc_pathloadmeter.c_str(),&loc_res,loc_argptr,loc_argnum);
-            _UpdateWidget(_hudmenu);
-
-            RE::GFxValue loc_tmpres; 
-            const std::string loc_pathresetoutput = (a_root + "._getOutputMessage");
-            _hudmenu->Invoke(loc_pathresetoutput.c_str(),&loc_tmpres,NULL,0);
-            _UpdateWidget(_hudmenu);
-
-            _outputStack[loc_outputId] = std::to_string(ROUND(loc_res.GetNumber()));
-
-            LOG("INVOKERES_fun end - {}",std::stoi(_outputStack[loc_outputId]))
-        });
-    }
-    else
-    {
-        _outputStack[loc_outputId] = "W8";
         const std::string loc_pathloadmeter = (a_root + a_fun);
         RE::GFxValue*   loc_argptr = NULL;
         RE::GFxValue    loc_arg;
@@ -888,9 +797,32 @@ int IWW::MainFunctions::INVOKERES_fun(std::string a_root, std::string a_arg, std
         _hudmenu->Invoke(loc_pathresetoutput.c_str(),&loc_tmpres,NULL,0);
         _UpdateWidget(_hudmenu);
 
-        _outputStack[loc_outputId] = std::to_string(ROUND(loc_res.GetNumber()));
+        auto loc_tries = _outputInvalidTries[loc_outputId];
 
-        LOG("INVOKERES_fun end - {}",ROUND(loc_res.GetNumber()))
-    }
+        if ((a_invvalue == -1) || loc_tries == 0 || ROUND(loc_res.GetNumber()) != a_invvalue)
+        {
+            _outputStack[loc_outputId] = std::to_string(ROUND(loc_res.GetNumber()));
+
+            LOG("INVOKERES_fun({}) Finished. Result = {}",loc_outputId,std::stoi(_outputStack[loc_outputId]))
+        }
+        else
+        {
+            LOG("INVOKERES_fun({}) - Returned value is invalue. Remaining tries {}",loc_outputId,loc_tries)
+
+            _outputInvalidTries[loc_outputId] = loc_tries - 1;
+
+            // try again
+            std::thread([loc_fun]
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(Config::GetSingleton()->GetVariable<int>("General.InvalidValueTimeDelay",250)));
+                SKSE::GetTaskInterface()->AddUITask(loc_fun);
+            }).detach();
+        }
+
+    };
+
+
+    SKSE::GetTaskInterface()->AddUITask(loc_fun);
+
     return loc_outputId;
 }
