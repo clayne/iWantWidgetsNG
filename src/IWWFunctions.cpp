@@ -763,17 +763,18 @@ int IWW::MainFunctions::INVOKERES_fun(std::string a_root, std::string a_arg, std
     uint32_t loc_outputId = _outputStackNextID;
     _outputStackNextID++; //increase output stack
 
-    LOG("INVOKERES_fun({}) - Output ID = {}",loc_outputId,loc_outputId)
+    //LOG("INVOKERES_fun({}) - Output ID = {}",loc_outputId,loc_outputId)
 
     _outputStack[loc_outputId] = "W8";
 
-    static const uint8_t loc_basetries = Config::GetSingleton()->GetVariable<int>("General.InvalidValueTimeDelay",20);
+    static const auto loc_basetries = Config::GetSingleton()->GetVariable<int>("General.InvalidValueTries",-1);
     _outputInvalidTries[loc_outputId] = loc_basetries;
 
-    std::function<void(void)> loc_fun;
-        
-    loc_fun = [this,loc_fun,loc_outputId,a_root,a_arg,a_fun,a_invvalue]
+    std::function<void()> *loc_fun = new std::function<void()>;
+
+    *loc_fun = [this,loc_fun,loc_outputId,a_root,a_arg,a_fun,a_invvalue]
     {
+        //LOG("INVOKERES_fun({}) - Thread called loc_fun = 0x{:016X}",loc_outputId,(uintptr_t)loc_fun)
         const std::string loc_pathloadmeter = (a_root + a_fun);
         RE::GFxValue*   loc_argptr = NULL;
         RE::GFxValue    loc_arg;
@@ -804,25 +805,28 @@ int IWW::MainFunctions::INVOKERES_fun(std::string a_root, std::string a_arg, std
             _outputStack[loc_outputId] = std::to_string(ROUND(loc_res.GetNumber()));
 
             LOG("INVOKERES_fun({}) Finished. Result = {}",loc_outputId,std::stoi(_outputStack[loc_outputId]))
+
+            delete loc_fun;
         }
         else
         {
-            LOG("INVOKERES_fun({}) - Returned value is invalue. Remaining tries {}",loc_outputId,loc_tries)
+            LOG("INVOKERES_fun({}) - Returned value is invalid. Remaining tries {}",loc_outputId,loc_tries)
 
             _outputInvalidTries[loc_outputId] = loc_tries - 1;
 
             // try again
             std::thread([loc_fun]
             {
+                //LOG("INVOKERES_fun() - Thread called. loc_fun = 0x{:016X}",(uintptr_t)loc_fun)
                 std::this_thread::sleep_for(std::chrono::milliseconds(Config::GetSingleton()->GetVariable<int>("General.InvalidValueTimeDelay",250)));
-                SKSE::GetTaskInterface()->AddUITask(loc_fun);
+                SKSE::GetTaskInterface()->AddUITask(*loc_fun);
             }).detach();
         }
 
     };
 
-
-    SKSE::GetTaskInterface()->AddUITask(loc_fun);
+    //LOG("INVOKERES_fun({}) - Calling UI Task. loc_fun = 0x{:016X}",loc_outputId,(uintptr_t)loc_fun)
+    SKSE::GetTaskInterface()->AddUITask(*loc_fun);
 
     return loc_outputId;
 }

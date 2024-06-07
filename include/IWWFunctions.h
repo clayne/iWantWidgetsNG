@@ -91,7 +91,7 @@ namespace IWW
 
         uint32_t _outputStackNextID = 0;
         std::unordered_map<uint32_t,std::string> _outputStack;
-        std::unordered_map<uint32_t,uint8_t> _outputInvalidTries;
+        std::unordered_map<uint32_t,int> _outputInvalidTries;
 
     };
 
